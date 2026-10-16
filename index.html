@@ -64,10 +64,22 @@ svg{display:block;flex:none}
 
 /* ===== shell ===== */
 .app{display:grid;grid-template-columns:224px minmax(0,1fr);min-height:100vh}
-@media(max-width:900px){.app{grid-template-columns:1fr}}
+@media(max-width:1024px){.app{grid-template-columns:1fr}}
 .side{background:var(--surface);border-right:1px solid var(--border);padding:18px 12px;display:flex;flex-direction:column;gap:2px;
   position:sticky;top:0;height:100vh;overflow-y:auto}
-@media(max-width:900px){.side{position:static;height:auto}}
+/* Sidebar jadi menu geser di iPad portrait dan ponsel */
+.iconbtn.menubtn{display:none}
+.navscrim{position:fixed;inset:0;background:rgba(14,30,32,.46);z-index:89;opacity:0;pointer-events:none;transition:opacity .2s ease}
+@media(max-width:1024px){
+  .side{position:fixed;top:0;left:0;bottom:0;height:100%;width:min(300px,86vw);z-index:90;transform:translateX(-104%);transition:transform .24s cubic-bezier(.2,.8,.2,1);
+    padding-top:calc(18px + env(safe-area-inset-top,0px));padding-bottom:calc(14px + env(safe-area-inset-bottom,0px));background:rgba(246,250,250,.97)!important}
+  body.navopen .side{transform:none;box-shadow:0 20px 60px rgba(11,47,51,.28)}
+  body.navopen .navscrim{opacity:1;pointer-events:auto}
+  body.navopen{overflow:hidden}
+  .iconbtn.menubtn{display:flex;margin-left:-4px}
+}
+@media(pointer:coarse){.iconbtn{width:40px;height:40px}}
+@media(prefers-reduced-motion:reduce){.side,.navscrim{transition:none}}
 .brand{display:flex;align-items:center;gap:9px;padding:2px 8px 15px}
 .brandmark{width:28px;height:28px;border-radius:var(--r-xs);background:var(--primary);display:grid;place-items:center;color:#fff;flex:none}
 .brandname{font-size:15px;font-weight:600;letter-spacing:-0.02em}
@@ -103,6 +115,13 @@ svg{display:block;flex:none}
 .iconbtn:hover{color:var(--text);background:var(--surface3)}
 .content{padding:30px clamp(24px,3vw,44px) 80px;max-width:1440px;width:100%}
 @media(max-width:620px){.topbar,.content{padding-left:15px;padding-right:15px}}
+@media(max-width:620px){
+  .topbar{flex-wrap:nowrap;gap:8px}
+  .topbar>span{display:none}
+  .ptitle{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .topspacer{display:none}
+  .locb{grid-template-columns:1fr!important}
+}
 .view{display:none}.view.on{display:block}
 
 /* ===== primitives ===== */
@@ -747,7 +766,7 @@ body{background:
 <body>
 
 <div class="app">
-  <aside class="side">
+  <aside class="side" id="sideNav" aria-label="Navigasi">
     <div class="brand"><div class="brandmark"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round"><path d="M5 17h14M3 12h18M6 7h12M7 17v2M17 17v2"/></svg></div><div class="brandname">GoFleet</div></div>
     <div style="font-size:10px;font-weight:600;color:var(--faint);padding:0 4px 4px;letter-spacing:.02em">LIHAT SEBAGAI · PROTOTIPE</div>
     <div class="roleswitch" role="group" aria-label="Ganti persona prototipe"><button data-role="requester" aria-pressed="false">Pemohon</button><button data-role="admin" aria-pressed="true">Koordinator</button></div>
@@ -759,7 +778,9 @@ body{background:
   </aside>
 
   <div class="mainwrap">
+    <div class="navscrim" id="navScrim" aria-hidden="true"></div>
     <header class="topbar">
+      <button class="iconbtn menubtn" id="menuBtn" aria-label="Buka menu" aria-expanded="false" aria-controls="sideNav"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg></button>
       <div class="ptitle" id="ptitle">Ringkasan</div>
       <div class="topspacer"></div>
       <span style="font-size:12.5px;color:var(--muted)">Sen 12 Okt · <b style="color:var(--text)">09.30</b></span>
@@ -1210,9 +1231,12 @@ function renderNav(){
   const a=ROLE==='admin';['uava','uava2'].forEach(id=>document.getElementById(id).textContent=a?'RA':'IM');
   document.getElementById('unm').textContent=a?'Rani A.':'Intan M.';document.getElementById('url').textContent=a?'Koordinator armada':'Sales · HQ';
   document.querySelectorAll('.roleswitch button').forEach(b=>b.setAttribute('aria-pressed',b.dataset.role===ROLE));if(typeof renderBell==='function')renderBell()}
+function setNav(open){document.body.classList.toggle('navopen',open);const b=document.getElementById('menuBtn');if(b){b.setAttribute('aria-expanded',open);b.setAttribute('aria-label',open?'Tutup menu':'Buka menu')}
+  if(open){const f=document.querySelector('#sideNav .navitem, #sideNav button');f&&f.focus()}}
 function go(v){const allowed=NAVS[ROLE].map(n=>n[0]).concat([ROLE==='admin'?'reference':'',ROLE==='requester'?'request':'']);if(!allowed.includes(v))v=NAVS[ROLE][0][0];
   currentView=v;document.querySelectorAll('.view').forEach(s=>s.classList.toggle('on',s.id==='view-'+v));
-  document.getElementById('ptitle').textContent=TITLES[v];renderNav();document.getElementById('pop').classList.remove('on');window.scrollTo({top:0,behavior:'smooth'});setTimeout(renderBoards,20);maybeTour(v)}
+  document.getElementById('ptitle').textContent=TITLES[v];renderNav();setNav(false);
+  if(v!=='decisions'){const dc=document.getElementById('detailCol'),db=document.getElementById('dbg');dc&&dc.classList.remove('open');db&&db.classList.remove('on')}else renderDetail();document.getElementById('pop').classList.remove('on');window.scrollTo({top:0,behavior:'smooth'});setTimeout(renderBoards,20);maybeTour(v)}
 
 /* ===== BOARD ===== */
 const PX=m=>((Math.min(Math.max(m,DAY0),DAY1)-DAY0)/(DAY1-DAY0))*100;
@@ -1921,6 +1945,8 @@ document.addEventListener('click',e=>{
       else{PENDING.push({...base,submitted:hm(SNAP),lead:+((r.s-SNAP)/60).toFixed(1),context:(!owner?'Pemohon belum diketahui — lengkapi sebelum kendaraan diambil. ':'')+(r.urgent?'Mendesak: '+r.why:'')||undefined});
         closeDrawer();renderAll();go('decisions');setTimeout(()=>openReq(id),60);toast(id+' dibuat · masuk antrean')}});return}
   if(e.target.id==='dbg'){openReq(null);return}
+  if(e.target.closest('#menuBtn')){setNav(!document.body.classList.contains('navopen'));return}
+  if(e.target.id==='navScrim'){setNav(false);return}
   if(e.target.closest('[data-nvclear]')){NV_PHOTO=null;document.getElementById('nv-photo').value='';document.getElementById('nv-prev').style.display='none';document.getElementById('nv-drop').style.display='';return}
   const qdb=e.target.closest('[data-qday]');if(qdb){qDay=qdb.dataset.qday==='all'?'all':+qdb.dataset.qday;renderQueue();return}
   const fo=e.target.closest('[data-focus]');if(fo){focusOpt=+fo.dataset.focus;renderDetail();return}
@@ -2023,7 +2049,7 @@ document.getElementById('histReset').addEventListener('click',()=>{histQ='';hist
 document.getElementById('vQ').addEventListener('input',e=>{VF.q=e.target.value;renderVehicles()});
 document.getElementById('vStatus').addEventListener('change',e=>{VF.status=e.target.value;renderVehicles()});
 document.getElementById('vReset').addEventListener('click',()=>{VF={q:'',status:'all',base:'all',size:'all'};document.getElementById('vQ').value='';document.getElementById('vStatus').value='all';renderVehicles()});
-document.addEventListener('keydown',e=>{if(e.key==='Escape'){toggleNPanel(false);closeConfirm();closeDrawer();document.getElementById('pop').classList.remove('on')}});
+document.addEventListener('keydown',e=>{if(e.key==='Escape'){if(document.body.classList.contains('navopen')){setNav(false);document.getElementById('menuBtn').focus();return}toggleNPanel(false);closeConfirm();closeDrawer();document.getElementById('pop').classList.remove('on')}});
 let tq;function toast(m){const t=document.getElementById('toast');t.textContent=m;t.classList.add('show');clearTimeout(tq);tq=setTimeout(()=>t.classList.remove('show'),3400)}
 function renderAll(){renderBell();renderOnb();renderToday();renderQueue();renderDayNav();renderHistory();renderVehicles();renderForm();renderMyTrips();renderBoards();renderNav();const r=PENDING.find(x=>x.id===selected);window.__opts=r?buildOptions(r):[]}
 renderAll();renderDetail();window.addEventListener('resize',renderBoards);
